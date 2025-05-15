@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Image to Video Generator</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { 
+      font-family: 'Inter', sans-serif; 
+      padding: 20px; 
+      background: #f8f9fb; 
+      color: #333;
+    }
+
+    .container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 20px;
+      align-items: flex-start;
+    }
+
+    .left-panel, .right-panel {
+      padding: 20px;
+      border-radius: 8px;
+    }
+
+    .left-panel {
+      flex: 1;
+      min-width: 300px;
+    }
+
+    .right-panel {
+      flex: 2;
+      min-width: 400px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    h1 {
+      font-size: 28px;
+      font-weight: 600;
+      margin-bottom: 15px;
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 150px;
+      padding: 15px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      resize: vertical;
+      background: #fff;
+      font-size: 16px;
+      margin-bottom: 15px;
+      font-family: 'Inter', sans-serif;
+    }
+
+    .image-preview {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      margin-top: 15px;
+    }
+
+    .image-preview img {
+      max-width: 100px;
+      border-radius: 8px;
+      object-fit: cover;
+      border: 2px solid #ddd;
+    }
+
+    .buttons {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 15px;
+    }
+
+    button {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 600;
+      font-family: 'Inter', sans-serif;
+    }
+
+    .generate-btn { background: #1e88e5; color: #fff; }
+    .generate-btn:disabled {
+      background: #ccc !important;
+      color: #666 !important;
+      cursor: not-allowed !important;
+    }
+
+    .result {
+      background: #f5f7f9;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 15px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      min-height: 300px;
+      width: 100%;
+    }
+
+    video {
+      width: 180px;
+      height: 320px;
+      border-radius: 8px;
+      background: #000;
+    }
+
+    @media (min-width: 768px) {
+      video {
+        width: 360px;
+        height: 640px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <div class="left-panel">
+    <h1>Image to Video Generator</h1>
+    <textarea id="promptInput" placeholder="Masukkan prompt untuk video..."></textarea>
+
+    <div class="buttons">
+      <button class="generate-btn" id="generateBtn" onclick="generateVideo()">🎬 Generate Video</button>
+    </div>
+
+    <div class="image-preview" id="imagePreview">
+      <p>Belum ada gambar dipilih dari halaman sebelumnya.</p>
+    </div>
+  </div>
+
+  <div class="right-panel">
+    <div id="outputVideo" class="result">
+      <p>Hasil video akan tampil di sini...</p>
+    </div>
+  </div>
+</div>
+
+<script>
+window.onload = function() {
+  const imageUrl = localStorage.getItem("generated_image_url");
+  const preview = document.getElementById("imagePreview");
+
+  if (imageUrl) {
+    preview.innerHTML = `<img src="${imageUrl}" alt="Gambar Terpilih">`;
+  }
+};
+
+async function generateVideo() {
+  const prompt = document.getElementById("promptInput").value.trim();
+  const imageUrl = localStorage.getItem("generated_image_url");
+  const outputDiv = document.getElementById("outputVideo");
+  const generateButton = document.getElementById("generateBtn");
+
+  if (!imageUrl) {
+    alert("Silakan pilih gambar terlebih dahulu di halaman 1.");
+    return;
+  }
+
+  if (!prompt) {
+    alert("Silakan masukkan prompt untuk video.");
+    return;
+  }
+
+  generateButton.disabled = true;
+  outputDiv.innerHTML = "<p>⏳ Sedang memproses video...</p>";
+
+  try {
+    const response = await fetch("https://n8n.avataralabs.ai/webhook/image-to-video", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ prompt: prompt, image: imageUrl })
+    });
+
+    const result = await response.json();
+    const videoUrl = result.video_url;
+
+    if (videoUrl) {
+      outputDiv.innerHTML = `
+        <video controls>
+          <source src="${videoUrl}" type="video/mp4">
+          Browser Anda tidak mendukung pemutar video.
+        </video>
+      `;
+    } else {
+      outputDiv.innerHTML = "<p>❌ Video gagal dibuat. Coba lagi.</p>";
+    }
+  } catch (error) {
+    outputDiv.innerHTML = "<p>❌ Terjadi kesalahan saat memproses video.</p>";
+    console.error(error);
+  } finally {
+    generateButton.disabled = false;
+  }
+}
+</script>
+
+</body>
+</html>

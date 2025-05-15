@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Text to Image Generator</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { 
+      font-family: 'Inter', sans-serif; 
+      padding: 20px; 
+      background: #f8f9fb; 
+      color: #333;
+    }
+
+    .container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 20px;
+      align-items: flex-start;
+    }
+
+    .left-panel, .right-panel {
+      padding: 20px;
+      border-radius: 8px;
+    }
+
+    .left-panel {
+      flex: 1;
+      min-width: 300px;
+    }
+
+    .right-panel {
+      flex: 2;
+      min-width: 400px;
+    }
+
+    .section-title {
+      font-size: 28px;
+      font-weight: 600;
+      margin-bottom: 15px;
+      text-align: left;
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 250px;
+      padding: 15px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      resize: vertical;
+      background: #fff;
+      font-size: 16px;
+      margin-bottom: 15px;
+      font-family: 'Inter', sans-serif;
+    }
+
+    .buttons {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 15px;
+      flex-wrap: wrap;
+    }
+
+    button {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 600;
+      font-family: 'Inter', sans-serif;
+    }
+
+    .upload-btn { background: #e1e6f9; color: #333; }
+    .generate-btn { background: #1e88e5; color: #fff; }
+    button:disabled {
+      background: #ccc !important;
+      color: #666 !important;
+      cursor: not-allowed !important;
+    }
+
+    .proses-btn {
+      background: #aaa;
+      color: #fff;
+      padding: 12px 24px;
+      border-radius: 50px;
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      cursor: not-allowed;
+      opacity: 0.6;
+      font-family: 'Inter', sans-serif;
+    }
+    .proses-btn.active {
+      background: #1e88e5;
+      cursor: pointer;
+      opacity: 1;
+    }
+
+    .reference-preview {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .reference-preview img {
+      max-width: 120px;
+      max-height: 120px;
+      border-radius: 8px;
+      object-fit: cover;
+      border: 2px solid #ddd;
+    }
+
+    .result {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 20px;
+      align-items: stretch;
+    }
+
+    .result img, .result .placeholder {
+      border: 2px solid #ddd;
+      border-radius: 16px;
+      width: 100%;
+      aspect-ratio: 9 / 16;
+      object-fit: cover;
+      background: #f5f7f9;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #999;
+      font-size: 16px;
+      transition: transform 0.2s ease, box-shadow 0.2s ease, border 0.2s ease;
+      cursor: pointer;
+    }
+
+    .result img:hover {
+      transform: scale(1.05);
+    }
+
+    .result img.selected {
+      border: 3px solid #1e88e5;
+      transform: scale(1.1);
+    }
+
+    @media (min-width: 768px) {
+      .result { grid-template-columns: repeat(4, 1fr); }
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <div class="left-panel">
+    <h1 class="section-title">Text to Image Generator</h1>
+    <textarea id="inputText" placeholder="Ketik prompt untuk gambar..."></textarea>
+
+    <div class="buttons">
+      <input type="file" id="imageInput" accept="image/*" style="display:none" multiple />
+      <button class="upload-btn" id="uploadBtn" onclick="document.getElementById('imageInput').click()">📷 Tambahkan Gambar</button>
+      <button class="generate-btn" id="generateBtn" onclick="generateImage()">⚡ Generate</button>
+    </div>
+
+    <div class="reference-preview" id="referencePreview"></div>
+  </div>
+
+  <div class="right-panel">
+    <div id="outputText" class="result">
+      <div class="placeholder">Gambar 1</div>
+      <div class="placeholder">Gambar 2</div>
+      <div class="placeholder">Gambar 3</div>
+      <div class="placeholder">Gambar 4</div>
+    </div>
+  </div>
+</div>
+
+<button id="prosesButton" class="proses-btn" disabled>Proses ke Video</button>
+
+<script>
+const prosesButton = document.getElementById("prosesButton");
+const uploadBtn = document.getElementById("uploadBtn");
+const generateBtn = document.getElementById("generateBtn");
+
+async function generateImage() {
+  const input = document.getElementById("inputText").value.trim();
+  const outputDiv = document.getElementById("outputText");
+  const referenceImages = document.getElementById("imageInput").files;
+
+  if (!input) {
+    alert("Silakan masukkan prompt terlebih dahulu.");
+    return;
+  }
+
+  uploadBtn.disabled = true;
+  generateBtn.disabled = true;
+  outputDiv.innerHTML = "<p>⏳ Sedang memproses...</p>";
+
+  try {
+    const formData = new FormData();
+    formData.append("prompt", input);
+
+    for (let i = 0; i < referenceImages.length; i++) {
+      formData.append("reference_images", referenceImages[i]);
+    }
+
+    const response = await fetch("https://n8n.avataralabs.ai/webhook/text-to-images", {
+      method: "POST",
+      body: formData
+    });
+
+    const result = await response.json();
+    const imageUrls = result.image_url;
+
+    if (Array.isArray(imageUrls) && imageUrls.length === 4) {
+      outputDiv.innerHTML = "";
+      imageUrls.forEach((url) => {
+        outputDiv.innerHTML += `<img src="${url}" class="placeholder" onclick="selectImage(this, '${url}')">`;
+      });
+
+      localStorage.setItem("generated_images", JSON.stringify(imageUrls));
+      prosesButton.disabled = true;
+      prosesButton.classList.remove("active");
+    } else {
+      outputDiv.innerHTML = "❌ Gambar tidak ditemukan.";
+    }
+  } catch (error) {
+    outputDiv.innerHTML = "❌ Terjadi kesalahan saat memproses.";
+    console.error(error);
+  } finally {
+    uploadBtn.disabled = false;
+    generateBtn.disabled = false;
+  }
+}
+
+function selectImage(element, url) {
+  document.querySelectorAll(".result img").forEach(img => {
+    img.classList.remove("selected");
+  });
+
+  element.classList.add("selected");
+  localStorage.setItem("generated_image_url", url);
+
+  prosesButton.disabled = false;
+  prosesButton.classList.add("active");
+}
+
+document.getElementById("imageInput").addEventListener("change", function() {
+  const preview = document.getElementById("referencePreview");
+  preview.innerHTML = "";
+
+  Array.from(this.files).forEach((file) => {
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      preview.innerHTML += `<img src="${e.target.result}">`;
+    };
+    reader.readAsDataURL(file);
+  });
+});
+
+prosesButton.addEventListener("click", function() {
+  if (!this.disabled) {
+    window.location.href = "halaman2.html";
+  }
+});
+</script>
+
+</body>
+</html>
